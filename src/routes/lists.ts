@@ -6,14 +6,15 @@ import { optionalAuth, requireAuth, signEditToken, verifyEditToken } from '../mi
 
 export const listsRouter = Router();
 
-// Browse all public lists
-listsRouter.get('/', (req, res) => {
+// Browse all public lists (+ own private lists if logged in)
+listsRouter.get('/', optionalAuth, (req, res) => {
   const { category, tag, user, q } = req.query;
   const lists = getAllLists({
     category: category as string,
     tag: tag as string,
     user: user as string,
     q: q as string,
+    viewer: req.user?.username,
   });
   res.json({ lists });
 });
@@ -24,11 +25,16 @@ listsRouter.get('/categories', (_req, res) => {
 });
 
 // Get single list
-listsRouter.get('/:owner/:slug', (req, res) => {
+listsRouter.get('/:owner/:slug', optionalAuth, (req, res) => {
   const owner = req.params.owner as string;
   const slug = req.params.slug as string;
   const list = getList(owner, slug);
   if (!list) {
+    res.status(404).json({ error: 'List not found' });
+    return;
+  }
+  // Private lists only visible to the owner
+  if (list.meta.visibility === 'private' && req.user?.username !== owner) {
     res.status(404).json({ error: 'List not found' });
     return;
   }
@@ -37,7 +43,7 @@ listsRouter.get('/:owner/:slug', (req, res) => {
 
 // Create list
 listsRouter.post('/', optionalAuth, (req, res) => {
-  const { title, description, category, tags, content, isPublic } = req.body;
+  const { title, description, category, tags, content, visibility } = req.body;
 
   if (!title || !content) {
     res.status(400).json({ error: 'title and content are required' });
@@ -61,7 +67,7 @@ listsRouter.post('/', optionalAuth, (req, res) => {
     tags: tags || [],
     created: now,
     updated: now,
-    public: isPublic !== false,
+    visibility: visibility || 'public',
   };
 
   saveList(owner, finalSlug, meta, content);
@@ -102,7 +108,7 @@ listsRouter.put('/:owner/:slug', optionalAuth, (req, res) => {
     return;
   }
 
-  const { title, description, category, tags, content, isPublic } = req.body;
+  const { title, description, category, tags, content, visibility } = req.body;
 
   const meta: ListMeta = {
     title: title ?? existing.meta.title,
@@ -111,7 +117,7 @@ listsRouter.put('/:owner/:slug', optionalAuth, (req, res) => {
     tags: tags ?? existing.meta.tags,
     created: existing.meta.created,
     updated: new Date().toISOString(),
-    public: isPublic ?? existing.meta.public,
+    visibility: visibility ?? existing.meta.visibility,
   };
 
   saveList(owner, slug, meta, content ?? existing.content);

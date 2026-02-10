@@ -18,7 +18,11 @@ export default function ListCard({ list }: { list: ListSummary }) {
 
   return (
     <Link to={url} className="list-card">
-      <div className="list-card-title">{list.title}</div>
+      <div className="list-card-title">
+        {list.title}
+        {list.visibility === 'private' && <span className="visibility-badge private">Private</span>}
+        {list.visibility === 'unlisted' && <span className="visibility-badge unlisted">Unlisted</span>}
+      </div>
       {list.description && <div className="list-card-desc">{list.description}</div>}
       <div className="list-card-meta">
         {list.owner !== '_anonymous' && (

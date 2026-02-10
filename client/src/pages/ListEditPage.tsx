@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../api';
+import { api, type Visibility } from '../api';
 import { useAuth } from '../context/AuthContext';
 import ListRenderer from '../components/ListRenderer';
 
@@ -16,7 +16,7 @@ export default function ListEditPage() {
   const [category, setCategory] = useState('');
   const [tags, setTags] = useState('');
   const [content, setContent] = useState('');
-  const [isPublic, setIsPublic] = useState(true);
+  const [visibility, setVisibility] = useState<Visibility>('public');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(isEdit);
@@ -30,7 +30,7 @@ export default function ListEditPage() {
         setCategory(list.meta.category);
         setTags(list.meta.tags.join(', '));
         setContent(list.content);
-        setIsPublic(list.meta.public);
+        setVisibility(list.meta.visibility);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -47,14 +47,13 @@ export default function ListEditPage() {
       if (isEdit) {
         const editToken = localStorage.getItem(`listwise_edit_${owner}_${slug}`);
         await api.updateList(owner, slug!, {
-          title, description, category, tags: tagList, content, isPublic,
+          title, description, category, tags: tagList, content, visibility,
         }, editToken || undefined);
         navigate(`/u/${owner}/${slug}`);
       } else {
         const result = await api.createList({
-          title, description, category, tags: tagList, content, isPublic,
+          title, description, category, tags: tagList, content, visibility,
         });
-        // Store edit token for anonymous lists
         if (result.editToken) {
           localStorage.setItem(`listwise_edit_${result.owner}_${result.slug}`, result.editToken);
         }
@@ -125,14 +124,16 @@ export default function ListEditPage() {
         </div>
 
         <div className="form-group">
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}>
-            <input
-              type="checkbox"
-              checked={isPublic}
-              onChange={(e) => setIsPublic(e.target.checked)}
-            />
-            Public list (visible to everyone)
-          </label>
+          <label className="form-label">Visibility</label>
+          <select
+            className="form-input"
+            value={visibility}
+            onChange={(e) => setVisibility(e.target.value as Visibility)}
+          >
+            <option value="public">Public — discoverable in explore and search</option>
+            <option value="unlisted">Unlisted — anyone with the link can view</option>
+            <option value="private">Private — only you can view</option>
+          </select>
         </div>
 
         <div className="editor-layout">

@@ -2,6 +2,8 @@ import matter from 'gray-matter';
 import fs from 'fs';
 import path from 'path';
 
+export type Visibility = 'public' | 'unlisted' | 'private';
+
 export interface ListMeta {
   title: string;
   description: string;
@@ -9,7 +11,7 @@ export interface ListMeta {
   tags: string[];
   created: string;
   updated: string;
-  public: boolean;
+  visibility: Visibility;
 }
 
 export interface ListData {
@@ -27,6 +29,7 @@ export interface ListSummary {
   owner: string;
   slug: string;
   updated: string;
+  visibility: Visibility;
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -38,6 +41,14 @@ export function getDataDir(): string {
 export function parseListFile(filePath: string): { meta: ListMeta; content: string } {
   const raw = fs.readFileSync(filePath, 'utf-8');
   const { data, content } = matter(raw);
+  // Support legacy `public: true/false` and new `visibility` field
+  let visibility: Visibility = 'public';
+  if (data.visibility) {
+    visibility = data.visibility;
+  } else if (data.public === false) {
+    visibility = 'unlisted';
+  }
+
   return {
     meta: {
       title: data.title || 'Untitled',
@@ -46,7 +57,7 @@ export function parseListFile(filePath: string): { meta: ListMeta; content: stri
       tags: data.tags || [],
       created: data.created || new Date().toISOString(),
       updated: data.updated || new Date().toISOString(),
-      public: data.public !== false,
+      visibility,
     },
     content: content.trim(),
   };
@@ -61,6 +72,7 @@ export function getAllLists(filters?: {
   tag?: string;
   user?: string;
   q?: string;
+  viewer?: string; // authenticated user requesting the lists
 }): ListSummary[] {
   const lists: ListSummary[] = [];
 
@@ -81,7 +93,11 @@ export function getAllLists(filters?: {
       const filePath = path.join(ownerDir, file);
       const { meta } = parseListFile(filePath);
 
-      if (!meta.public) continue;
+      // public: shown to everyone in browse
+      // unlisted: not in browse, but accessible by direct URL
+      // private: only visible to owner
+      if (meta.visibility === 'private' && owner !== filters?.viewer) continue;
+      if (meta.visibility === 'unlisted') continue; // never in browse results
 
       const slug = file.replace(/\.md$/, '');
       const summary: ListSummary = {
@@ -92,6 +108,7 @@ export function getAllLists(filters?: {
         owner,
         slug,
         updated: meta.updated,
+        visibility: meta.visibility,
       };
 
       if (filters?.category && meta.category !== filters.category) continue;

@@ -21,6 +21,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return res.json();
 }
 
+export type Visibility = 'public' | 'unlisted' | 'private';
+
 export interface ListSummary {
   title: string;
   description: string;
@@ -29,6 +31,7 @@ export interface ListSummary {
   owner: string;
   slug: string;
   updated: string;
+  visibility: Visibility;
 }
 
 export interface ListData {
@@ -39,7 +42,7 @@ export interface ListData {
     tags: string[];
     created: string;
     updated: string;
-    public: boolean;
+    visibility: Visibility;
   };
   content: string;
   owner: string;
@@ -98,7 +101,7 @@ export const api = {
     category: string;
     tags: string[];
     content: string;
-    isPublic: boolean;
+    visibility: Visibility;
   }) =>
     request<{ owner: string; slug: string; editToken?: string }>('/lists', {
       method: 'POST',
